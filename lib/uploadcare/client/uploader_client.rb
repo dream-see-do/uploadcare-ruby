@@ -76,9 +76,15 @@ module Uploadcare
       def poll_upload_response(token)
         with_retries(max_tries: Uploadcare.config.max_request_tries,
                      base_sleep_seconds: Uploadcare.config.base_request_sleep,
-                     max_sleep_seconds: Uploadcare.config.max_request_sleep) do
+                     max_sleep_seconds: Uploadcare.config.max_request_sleep,
+                     rescue: RetryError) do
           response = get_upload_from_url_status(token)
-          raise RequestError if %w[progress waiting unknown].include?(response.success[:status])
+
+          if response.success[:status] == 'error'
+            raise RequestError, response.success[:error]
+          elsif %w[progress waiting unknown].include?(response.success[:status])
+            raise RetryError, response.success[:error]
+          end
 
           response
         end
